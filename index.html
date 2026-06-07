@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeCodeX · Interactive DNA Structure Explorer</title>
+
+<!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║         DNA STRUCTURE EXPLORER  ·  v2.0                     ║
+  ║  A classroom-ready interactive tool for understanding DNA.   ║
+  ╠══════════════════════════════════════════════════════════════╣
+  ║  TEACHER CUSTOMIZATION NOTES:                               ║
+  ║  · Colors  → search "COLOR SCHEME" to change pair colors    ║
+  ║  · Base Pairs → fixed at 10 (one complete helical turn)      ║
+  ║  · Speed   → change ROTATE_SPEED constant in JS section     ║
+  ╚══════════════════════════════════════════════════════════════╝
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════════ */
+:root {
+  /* Core dark palette — deep space navy */
+  --bg:          #080c18;
+  --bg2:         #0c1124;
+  --bg3:         #111829;
+  --surface:     #16203a;
+  --surface2:    #1d2b4a;
+  --border:      #1f2e52;
+  --border-hi:   #2d4278;
+
+  /* Accent blue/cyan — backbone colors */
+  --blue:        #3d7eff;        /* COLOR SCHEME: left backbone */
+  --blue-glow:   rgba(61,126,255,0.35);
+  --cyan:        #00d4f5;        /* COLOR SCHEME: right backbone */
+  --cyan-glow:   rgba(0,212,245,0.35);
+
+  /* Base pair colors — COLOR SCHEME */
+  --at:          #2dff9a;        /* Adenine-Thymine  (2 bonds) */
+  --at-glow:     rgba(45,255,154,0.4);
+  --at-dim:      #1ab870;
+  --gc:          #ffb030;        /* Guanine-Cytosine (3 bonds) */
+  --gc-glow:     rgba(255,176,48,0.4);
+  --gc-dim:      #c07800;
+
+  /* Text hierarchy */
+  --text:        #e2e9f8;
+  --text-mid:    #8fa3c8;
+  --text-dim:    #4a5e88;
+  --text-muted:  #2a3860;
+
+  /* UI */
+  --radius:      14px;
+  --radius-sm:   8px;
+  --t:           0.2s ease;
+  --font-mono:   'JetBrains Mono', monospace;
+  --font-ui:     'Syne', sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layered background: grid + radial glow ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(61,126,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61,126,255,0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 25% 50%, rgba(61,126,255,0.07) 0%, transparent 70%),
+              radial-gradient(ellipse 40% 60% at 75% 30%, rgba(0,212,245,0.05) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════════ */
+header {
+  position: relative; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(8,12,24,0.92);
+  backdrop-filter: blur(12px);
+}
+
+.logo { display: flex; align-items: center; gap: 0.8rem; }
+
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem;
+  box-shadow: 0 0 20px rgba(61,126,255,0.5), 0 0 40px rgba(0,212,245,0.2);
+  animation: iconPulse 3s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(61,126,255,0.5), 0 0 40px rgba(0,212,245,0.2); }
+  50%       { box-shadow: 0 0 30px rgba(61,126,255,0.7), 0 0 60px rgba(0,212,245,0.35); }
+}
+
+.logo-wordmark { line-height: 1.1; }
+.logo-name {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: clamp(1.1rem, 3vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #34d399 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.logo-tagline {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: clamp(0.65rem, 1.6vw, 0.82rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: 3px;
+  text-transform: none;
+}
+
+.header-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.chip {
+  font-family: var(--font-mono); font-size: 0.6rem;
+  padding: 0.25rem 0.65rem; border-radius: 20px;
+  border: 1px solid var(--border); color: var(--text-dim);
+  letter-spacing: 0.06em; white-space: nowrap;
+}
+.chip-glow {
+  border-color: var(--border-hi); color: var(--text-mid);
+  background: rgba(61,126,255,0.06);
+}
+
+/* ═══════════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════════ */
+main {
+  position: relative; z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 1.25rem;
+  padding: 1.25rem 2rem 2rem;
+  min-height: calc(100vh - 68px);
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+@media (max-width: 980px) {
+  main { grid-template-columns: 1fr; padding: 1rem; }
+}
+@media (max-width: 600px) {
+  header { padding: 0.75rem 1rem; }
+  .header-chips { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   CARD BASE
+═══════════════════════════════════════════════════════ */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+.card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   VIZ PANEL (left column)
+═══════════════════════════════════════════════════════ */
+.viz-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+.viz-card {
+  flex: 1; display: flex; flex-direction: column;
+  min-height: 540px;
+  animation: borderPulse 5s ease-in-out infinite;
+}
+@keyframes borderPulse {
+  0%, 100% { border-color: var(--border); }
+  50%       { border-color: var(--border-hi); box-shadow: 0 0 24px rgba(61,126,255,0.08); }
+}
+
+/* ── Viz header bar ── */
+.viz-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.8rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.viz-title {
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--cyan); display: flex; align-items: center; gap: 0.5rem;
+}
+.viz-title::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.viz-controls { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+/* ── Canvas wrap ── */
+#canvas-wrap {
+  flex: 1; position: relative; min-height: 440px;
+  cursor: grab; overflow: hidden;
+}
+#canvas-wrap:active { cursor: grabbing; }
+
+/* Coding / Non-Template Strand tap hint */
+#nc-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 500 10px 'JetBrains Mono', monospace;
+  color: #3d7eff;
+  background: rgba(8,12,24,0.78);
+  border: 1px solid rgba(61,126,255,0.35);
+  border-radius: 20px;
+  padding: 4px 12px;
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.4s;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+#dna-canvas { display: block; width: 100%; height: 100%; }
+
+/* ── Tooltip ── */
+#tooltip {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.85rem;
+  font-size: 0.76rem; font-family: var(--font-ui);
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.12s;
+  max-width: 210px; z-index: 50;
+  line-height: 1.55;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+#tooltip.show { opacity: 1; }
+#tip-title { font-weight: 700; margin-bottom: 0.15rem; }
+#tip-bonds { color: var(--text-mid); font-size: 0.7rem; }
+#tip-tip   { color: var(--text-dim); font-size: 0.67rem; font-family: var(--font-mono); margin-top: 0.2rem; }
+
+/* ── End labels ── */
+.end-label {
+  position: absolute;
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700;
+  pointer-events: none; letter-spacing: 0.06em;
+  padding: 0.2rem 0.45rem; border-radius: 4px;
+}
+.end-label.prime-5 { color: var(--blue); background: rgba(61,126,255,0.1); border: 1px solid rgba(61,126,255,0.25); }
+.end-label.prime-3 { color: var(--cyan); background: rgba(0,212,245,0.1); border: 1px solid rgba(0,212,245,0.25); }
+
+
+
+/* ═══════════════════════════════════════════════════════
+   LEGEND CARD
+═══════════════════════════════════════════════════════ */
+.legend-card {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.5rem 1.2rem; padding: 0.8rem 1.1rem;
+  overflow-x: auto;
+}
+.legend-head {
+  font-family: var(--font-mono); font-size: 0.58rem; text-transform: uppercase;
+  letter-spacing: 0.14em; color: var(--text-dim); margin-right: 0.25rem;
+}
+.legend-item { display: flex; align-items: center; gap: 0.45rem; font-size: 0.73rem; color: var(--text-mid); }
+.l-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.l-line { width: 26px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.38rem;
+  padding: 0.4rem 0.85rem; border-radius: var(--radius-sm);
+  font-size: 0.7rem; font-family: var(--font-ui); font-weight: 600;
+  cursor: pointer; border: 1px solid transparent;
+  transition: all var(--t); white-space: nowrap;
+  letter-spacing: 0.02em; position: relative; overflow: hidden;
+}
+.btn i { font-size: 0.75rem; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--blue), #1a5acc);
+  color: #fff; border-color: rgba(61,126,255,0.5);
+}
+.btn-primary::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  opacity: 0; transition: opacity 0.2s;
+}
+.btn-primary:hover::after { opacity: 1; }
+.btn-primary:hover { box-shadow: 0 0 16px var(--blue-glow); }
+.btn-primary.active {
+  background: linear-gradient(135deg, var(--cyan), #007899);
+  border-color: rgba(0,212,245,0.5);
+  box-shadow: 0 0 14px var(--cyan-glow);
+}
+
+.btn-ghost {
+  background: transparent; color: var(--text-mid); border-color: var(--border);
+}
+.btn-ghost:hover { background: var(--surface); color: var(--text); border-color: var(--border-hi); }
+.btn-ghost.active {
+  background: rgba(0,212,245,0.08); color: var(--cyan); border-color: rgba(0,212,245,0.35);
+}
+
+/* ═══════════════════════════════════════════════════════
+   INFO PANEL (right column)
+═══════════════════════════════════════════════════════ */
+.info-panel { display: flex; flex-direction: column; gap: 1rem; }
+.info-card { flex: 1; display: flex; flex-direction: column; }
+
+
+
+/* ── Fact blocks (Structure tab) ── */
+.section-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.13em; color: var(--text); margin-bottom: 0.45rem;
+}
+.section-head i { color: var(--cyan); font-size: 0.72rem; }
+
+.fact-block { margin-bottom: 1.15rem; }
+.fact-text { font-size: 0.82rem; color: var(--text-mid); line-height: 1.7; }
+.hl { color: var(--text); font-weight: 600; }
+.hl-at { color: var(--at); font-weight: 600; }
+.hl-gc { color: var(--gc); font-weight: 600; }
+
+/* Chargaff box */
+.chargaff {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.7rem 0.9rem;
+  margin-top: 0.65rem; font-family: var(--font-mono); font-size: 0.76rem;
+  line-height: 2;
+}
+.c-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.4rem; }
+.c-row.at { color: var(--at); } .c-row.gc { color: var(--gc); }
+.c-row span:nth-child(2) { text-align: center; white-space: nowrap; }
+.c-bond { font-size: 0.62rem; color: var(--text-dim); text-align: right; justify-self: end; white-space: nowrap; }
+
+/* Ring diagram */
+.ring-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin-top: 0.65rem; }
+.ring-box {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.7rem; text-align: center;
+  transition: border-color var(--t);
+}
+.ring-box:hover { border-color: var(--border-hi); }
+.ring-box canvas { display: block; margin: 0 auto 0.35rem; }
+.ring-name { font-family: var(--font-mono); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.15rem; }
+.ring-bases { font-size: 0.68rem; color: var(--text-dim); line-height: 1.4; }
+
+/* ── Info overlay (ℹ button) ── */
+#info-overlay {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(11, 17, 36, 0.88);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  display: none; flex-direction: column; gap: 0.45rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 30;
+}
+#info-overlay.show { display: flex; }
+.info-row { display: flex; align-items: baseline; gap: 0.55rem; }
+.info-val {
+  font-family: var(--font-mono); font-size: 1rem; font-weight: 700;
+  color: var(--cyan); min-width: 3.8rem;
+}
+.info-lbl {
+  font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-dim);
+}
+
+
+
+
+
+/* ═══════════════════════════════════════════════════════
+   TRANSCRIPTION MODE
+═══════════════════════════════════════════════════════ */
+.btn-mrna {
+  color: #c4b5fd; border-color: rgba(139,92,246,0.4);
+  background: rgba(139,92,246,0.08);
+}
+.btn-mrna:hover { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.6); color: #ddd6fe; }
+.btn-mrna.active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: rgba(245,158,11,0.5);
+  box-shadow: 0 0 14px rgba(245,158,11,0.4);
+  color: #fff;
+}
+
+#transcription-status {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(11,17,36,0.9);
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: 20px;
+  padding: 0.3rem 1rem;
+  font-family: var(--font-mono); font-size: 0.62rem; font-weight: 600;
+  color: #c4b5fd;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap; z-index: 40;
+}
+#transcription-status.show { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE TWEAKS
+═══════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .viz-controls { gap: 0.3rem; }
+  .btn { padding: 0.35rem 0.6rem; font-size: 0.65rem; }
+  .legend-card { gap: 0.4rem 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧬</div>
+    <div class="logo-wordmark">
+      <div class="logo-name">DeCodeX 🔍</div>
+      <div class="logo-tagline">Interactive DNA Structure Explorer</div>
+    </div>
+  </div>
+  <div class="header-chips">
+    <span class="chip chip-glow">B-Form Helix</span>
+    <span class="chip">AP Biology</span>
+    <span class="chip">NCERT Grade 12</span>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════ -->
+<main>
+
+  <!-- ── LEFT: Visualization ── -->
+  <div class="viz-panel">
+    <div class="card viz-card">
+
+      <!-- Control bar -->
+      <div class="viz-header">
+        <span class="viz-title" id="viz-title">Bond View</span>
+        <div class="viz-controls">
+          <button class="btn btn-primary" id="btn-anim" onclick="toggleAnim()">
+            <span id="anim-icon">▶</span> Rotate
+          </button>
+          <button class="btn btn-ghost" id="btn-labels" onclick="toggleLabels()">
+            <span>🏷</span> Labels
+          </button>
+          <button class="btn btn-ghost active" id="btn-hbonds" onclick="toggleHBonds()">
+            <span>⋯</span> H-Bonds
+          </button>
+          <button class="btn btn-ghost" id="btn-noncoding" onclick="toggleNonCoding()" title="Show Coding / Non-Template Strand bases">
+            <span>🧬</span> Coding / Non-Template
+          </button>
+          <button class="btn btn-ghost" id="btn-info" onclick="toggleInfo()" title="Helix dimensions" aria-label="Toggle helix dimensions overlay">
+            <span>ℹ</span>
+          </button>
+          <button class="btn btn-ghost btn-mrna" id="btn-transcribe" onclick="toggleTranscription()" title="DNA → mRNA transcription" aria-label="Toggle DNA to mRNA transcription">
+            <span>🧪</span> DNA → mRNA
+          </button>
+          <button class="btn btn-ghost" onclick="resetView()" title="Reset view" aria-label="Reset helix rotation">
+            <span>↺</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Canvas area -->
+      <div id="canvas-wrap">
+        <canvas id="dna-canvas" aria-label="Interactive DNA double helix visualisation" role="img"></canvas>
+
+        <!-- Non-coding strand hint badge -->
+        <div id="nc-badge">Tap Coding / Non-Template Strand</div>
+
+        <!-- Info overlay -->
+        <div id="info-overlay">
+          <div class="info-row"><span class="info-val">10.5</span><span class="info-lbl">bp / turn</span></div>
+          <div class="info-row"><span class="info-val">34 Å</span><span class="info-lbl">pitch</span></div>
+          <div class="info-row"><span class="info-val">3.4 Å</span><span class="info-lbl">rise / bp</span></div>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="tooltip">
+          <div id="tip-title"></div>
+          <div id="tip-bonds"></div>
+          <div id="tip-tip"></div>
+        </div>
+
+        <!-- 5'/3' end labels -->
+        <!--
+          Antiparallel: left strand runs 5'→3' top to bottom,
+          right strand runs 3'→5' top to bottom.
+        -->
+        <div class="end-label prime-5" style="top:10px; left:14px;">5′</div>
+        <div class="end-label prime-3" style="top:10px; right:14px;">3′</div>
+        <div class="end-label prime-3" style="bottom:8px; left:14px;">3′</div>
+        <div class="end-label prime-5" style="bottom:8px; right:14px;">5′</div>
+
+        <!-- Transcription status bar -->
+        <div id="transcription-status"></div>
+      </div>
+
+
+    </div>
+
+    <!-- Legend -->
+    <div class="card legend-card">
+      <!-- Backbones row -->
+      <div class="legend-item">
+        <div class="l-line" style="background:var(--blue); box-shadow:0 0 6px var(--blue-glow);"></div>
+        <span>5′→3′ Backbone</span>
+      </div>
+      <div class="legend-item">
+        <div class="l-line" style="background:var(--cyan); box-shadow:0 0 6px var(--cyan-glow);"></div>
+        <span>3′→5′ Backbone</span>
+      </div>
+
+      <!-- A-T / U row -->
+      <div class="legend-item" style="width:100%; gap:0.55rem; flex-wrap:nowrap; align-items:center;">
+        <div class="l-dot" style="background:var(--at); box-shadow:0 0 6px var(--at-glow); flex-shrink:0;"></div>
+        <span style="color:var(--at); font-family:var(--font-mono); font-size:0.68rem; font-weight:600; white-space:nowrap;">DNA: A – T</span>
+        <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.65rem; white-space:nowrap;">(2 H-bonds)</span>
+        <span style="color:var(--border-hi); font-family:var(--font-mono); font-size:0.65rem;">│</span>
+        <div class="l-dot" style="background:var(--at); box-shadow:0 0 6px var(--at-glow); flex-shrink:0;"></div>
+        <span style="color:var(--at); font-family:var(--font-mono); font-size:0.68rem; font-weight:600; white-space:nowrap;">mRNA: A – U</span>
+        <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.65rem; white-space:nowrap;">(2 H-bonds)</span>
+      </div>
+
+      <!-- G-C row -->
+      <div class="legend-item" style="width:100%; gap:0.55rem; flex-wrap:nowrap; align-items:center;">
+        <div class="l-dot" style="background:var(--gc); box-shadow:0 0 6px var(--gc-glow); flex-shrink:0;"></div>
+        <span style="color:var(--gc); font-family:var(--font-mono); font-size:0.68rem; font-weight:600; white-space:nowrap;">DNA: G – C</span>
+        <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.65rem; white-space:nowrap;">(3 H-bonds)</span>
+        <span style="color:var(--border-hi); font-family:var(--font-mono); font-size:0.65rem;">│</span>
+        <div class="l-dot" style="background:var(--gc); box-shadow:0 0 6px var(--gc-glow); flex-shrink:0;"></div>
+        <span style="color:var(--gc); font-family:var(--font-mono); font-size:0.68rem; font-weight:600; white-space:nowrap;">mRNA: G – C</span>
+        <span style="color:var(--text-dim); font-family:var(--font-mono); font-size:0.65rem; white-space:nowrap;">(3 H-bonds)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Info Panel ── -->
+  <div class="info-panel">
+    <div class="card info-card">
+
+      <div style="padding:0.8rem 1.1rem; border-bottom:1px solid var(--border); font-family:var(--font-mono); font-size:0.65rem; font-weight:500; text-transform:uppercase; letter-spacing:0.08em; color:var(--cyan);">
+        <span style="margin-right:0.3rem;">ℹ</span>Structure
+      </div>
+
+      <!-- ══ TAB: STRUCTURE ══ -->
+      <div style="padding:1.15rem; flex:1; overflow-y:auto;" id="tab-structure">
+
+        <div class="fact-block">
+          <div class="section-head"><span>🧬</span> Double Helix</div>
+          <div class="fact-text">
+            DNA is a <span class="hl">right-handed double helix</span> — two antiparallel
+            strands wound around a central axis like a twisted ladder. Discovered by
+            Watson &amp; Crick in <span class="hl">1953</span> using Franklin's X-ray data.
+          </div>
+        </div>
+
+        <div class="fact-block">
+          <div class="section-head"><span>↕</span> Antiparallel Strands</div>
+          <div class="fact-text">
+            One strand runs <span class="hl">5′ → 3′</span> and the complementary strand
+            runs <span class="hl">3′ → 5′</span>. They always run in <em>opposite</em> directions —
+            this is essential for DNA replication and transcription.
+          </div>
+        </div>
+
+        <div class="fact-block">
+          <div class="section-head"><span>🔗</span> Base Pairing Rules</div>
+          <div class="fact-text">Only specific bases can pair (<em>complementary base pairing</em>):</div>
+          <div class="chargaff">
+            <div class="c-row at">
+              <span><strong>Adenine (A)</strong></span>
+              <span>⟷ <strong>Thymine (T)</strong></span>
+              <span class="c-bond">·· 2 H-bonds</span>
+            </div>
+            <div class="c-row gc">
+              <span><strong>Guanine (G)</strong></span>
+              <span>⟷ <strong>Cytosine (C)</strong></span>
+              <span class="c-bond">··· 3 H-bonds</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fact-block">
+          <div class="section-head"><span>⚖</span> Chargaff's Rule</div>
+          <div class="fact-text">
+            In any DNA sample: <span class="hl-at">%A = %T</span> and
+            <span class="hl-gc">%G = %C</span>. The ratio of purines to pyrimidines
+            is always exactly <span class="hl">1:1</span>.
+          </div>
+        </div>
+
+        <div class="fact-block">
+          <div class="section-head"><span>⬡</span> Purine vs Pyrimidine</div>
+          <div class="ring-grid">
+            <div class="ring-box">
+              <canvas id="purine-canvas" width="88" height="54"></canvas>
+              <div class="ring-name" style="color:var(--gc);">Purine</div>
+              <div class="ring-bases">Adenine &amp; Guanine<br>
+                <span style="font-size:0.62rem;color:var(--text-dim);">double ring structure</span>
+              </div>
+            </div>
+            <div class="ring-box">
+              <canvas id="pyrimidine-canvas" width="88" height="54"></canvas>
+              <div class="ring-name" style="color:var(--at);">Pyrimidine</div>
+              <div class="ring-bases">Thymine &amp; Cytosine<br>
+                <span style="font-size:0.62rem;color:var(--text-dim);">single ring structure</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────────────
+   CONFIGURATION — teachers can tweak these values
+───────────────────────────────────────────────── */
+const ROTATE_SPEED     = 0.009; // radians per frame (higher = faster spin)
+const BDNA_BP_PER_TURN = 10.5;  // B-DNA: base pairs per helical turn
+const BACKBONE_W    = 5;    // backbone stroke width
+
+/* ─────────────────────────────────────────────────
+   BASE PAIR SEQUENCE
+   Deterministic pattern: 0=AT, 1=GC.
+   Gives a realistic-looking mix for up to 20 bp.
+───────────────────────────────────────────────── */
+// Coding / Non-Template Strand 5'→3' (first 10 of AGTCAGTCAGTC)
+const SEQ_NC = ['A','G','T','C','A','G','T','C','A','G'];
+// For legacy helix colour: 0=AT pair, 1=GC pair
+const SEQ = SEQ_NC.map(b => (b==='A'||b==='T') ? 0 : 1);
+
+/* ─────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────── */
+const numBP        = 10;   // always exactly one complete turn
+let animating          = false;
+let showLabels         = false;
+let showHBonds         = true;
+let showNonCodingBases = false;  // revealed when user taps the Coding / Non-Template Strand
+let angle          = 0;      // current helix rotation angle (radians)
+let manualOff      = 0;      // drag offset added to angle
+let raf            = null;
+let drag           = { on: false, lastY: 0, didMove: false };
+
+/* ─────────────────────────────────────────────────
+   TRANSCRIPTION STATE
+───────────────────────────────────────────────── */
+let transcriptionMode  = false;  // is transcription active?
+let txPhase            = 'idle'; // idle | synthesise | drift | done
+let txProgress         = 0;      // 0..1 within current phase
+let txMRNACount        = 0;      // how many mRNA bases fully revealed (0..numBP)
+let txDrift            = 0;      // 0..1 mRNA outward drift after synthesis
+let txRaf              = null;   // rAF handle for transcription animation
+
+// DNA complement map
+const DNA_COMP = { A:'T', T:'A', G:'C', C:'G' };
+// DNA→mRNA complement map (template strand: 3'→5')
+const MRNA_MAP = { A: 'U', T: 'A', G: 'C', C: 'G' };
+
+// Colour per base-pair type: AT=green, GC=amber
+function bpCol(nc) { return (nc==='A'||nc==='T') ? '#2dff9a' : '#ffb030'; }
+
+// Precompute per-basepair data from the explicit non-coding sequence
+const TX_BP = Array.from({ length: numBP }, (_, i) => {
+  const codingDNA = SEQ_NC[i % SEQ_NC.length];  // Coding / Non-Template strand base (5'→3')
+  const tmplDNA   = DNA_COMP[codingDNA];          // template strand base   (3'→5')
+  const mRNA      = MRNA_MAP[tmplDNA];            // mRNA base              (5'→3')
+  const col       = bpCol(codingDNA);
+  return { codingDNA, tmplDNA, mRNA, col };
+});
+
+/* ─────────────────────────────────────────────────
+   CANVAS SETUP
+───────────────────────────────────────────────── */
+const canvas = document.getElementById('dna-canvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvas-wrap');
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = wrap.clientWidth  * dpr;
+  canvas.height = wrap.clientHeight * dpr;
+  canvas.style.width  = wrap.clientWidth  + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  ctx.scale(dpr, dpr);
+  draw();
+}
+
+new ResizeObserver(resize).observe(wrap);
+
+/* ─────────────────────────────────────────────────
+   COLOUR CONSTANTS  (change these to restyle)
+───────────────────────────────────────────────── */
+const C = {
+  bbL : '#3d7eff',   // left backbone  (5'→3' strand)
+  bbR : '#00d4f5',   // right backbone (3'→5' strand)
+  AT  : '#2dff9a',   // A-T base pairs
+  GC  : '#ffb030',   // G-C base pairs
+};
+
+/* ─────────────────────────────────────────────────
+   MAIN DRAW
+───────────────────────────────────────────────── */
+function draw() {
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx   = W / 2;
+  const amp  = Math.min(90, W * 0.2) * (10 / Math.max(10, numBP)) * 0.8 + 20;
+  const topY = 32;
+  const botY = H - 40;
+  const span = botY - topY;
+  const step = span / (numBP + 1);
+  const a    = angle + manualOff;
+
+  // In transcription mode, replace entire scene
+  if (transcriptionMode) {
+    drawTranscriptionScene(W, H, cx, amp, topY, botY, step, a);
+    return;
+  }
+
+  /* -- Pre-compute backbone point positions -- */
+  const GROOVE_OFFSET = 5 * Math.PI / 6;
+  const L = [], R = [];
+  for (let i = -1; i <= numBP; i++) {
+    const y = topY + (i + 1) * step;
+    const t = ((i + 1) / (numBP + 1)) * Math.PI * 2 * (numBP / BDNA_BP_PER_TURN) + a;
+    L.push({ x: cx + Math.cos(t) * amp, y });
+    R.push({ x: cx + Math.cos(t + GROOVE_OFFSET) * amp, y });
+  }
+
+  drawBackbone(L, C.bbL);
+  drawBackbone(R, C.bbR);
+
+  const isPurine = { A: true, G: true, T: false, C: false };
+
+  const pairs = [];
+  for (let i = 1; i <= numBP; i++) {
+    const lp = L[i], rp = R[i];
+    const t = ((i) / (numBP + 1)) * Math.PI * 2 * (numBP / BDNA_BP_PER_TURN) + a;
+    const behind = Math.sin(t) < 0;
+    pairs.push({ i, lp, rp, behind });
+  }
+  pairs.sort((a, b) => (b.behind ? -1 : 1));
+
+  pairs.forEach(({ i, lp, rp, behind }) => {
+    const type  = SEQ[(i - 1) % SEQ.length] === 0 ? 'AT' : 'GC';
+    const col   = type === 'AT' ? C.AT : C.GC;
+    const bonds = type === 'AT' ? 2 : 3;
+    const alpha = behind ? 0.42 : 1.0;
+
+    ctx.globalAlpha = alpha;
+
+    const ringR     = Math.max(5, Math.min(step * 0.38, 18));
+    const lw        = behind ? 1.0 : 1.8;
+    const glow      = behind ? 0   : 10;
+    const leftBase  = SEQ_NC[(i - 1) % SEQ_NC.length];   // Coding / Non-Template strand
+    const rightBase = DNA_COMP[leftBase];                  // template strand
+
+    function drawRings(cx2, cy2, base, dir) {
+      const col2   = col;
+      const pur    = isPurine[base];
+      const six_cx = cx2 + dir * (ringR + 3);
+      const six_cy = cy2;
+
+      function hexPts2(hx, hy, r) {
+        return Array.from({ length: 6 }, (_, k) => ({
+          x: hx + r * Math.cos(-Math.PI / 2 + k * Math.PI / 3),
+          y: hy + r * Math.sin(-Math.PI / 2 + k * Math.PI / 3),
+        }));
+      }
+      function pentPts2(px, py, r) {
+        return Array.from({ length: 5 }, (_, k) => ({
+          x: px + r * Math.cos(-Math.PI / 2 + k * 2 * Math.PI / 5),
+          y: py + r * Math.sin(-Math.PI / 2 + k * 2 * Math.PI / 5),
+        }));
+      }
+      function drawPoly(pts) {
+        ctx.beginPath();
+        pts.forEach((p, k) => k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+      }
+
+      ctx.strokeStyle = col2; ctx.lineWidth = lw;
+      ctx.shadowBlur  = glow; ctx.shadowColor = col2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(cx2, cy2); ctx.lineTo(cx2 + dir * 3, cy2);
+      ctx.lineWidth = lw * 0.7; ctx.strokeStyle = col + (behind ? '44' : '66');
+      ctx.shadowBlur = 0; ctx.stroke();
+      ctx.lineWidth = lw; ctx.strokeStyle = col2; ctx.shadowBlur = glow;
+
+      if (pur) {
+        const pent_r  = ringR * 0.72;
+        const pent_cx = six_cx + dir * (ringR * 0.85 + pent_r * 0.6);
+        drawPoly(hexPts2(six_cx, six_cy, ringR)); ctx.stroke();
+        drawPoly(pentPts2(pent_cx, cy2, pent_r)); ctx.stroke();
+        return pent_cx + dir * pent_r;
+      } else {
+        drawPoly(hexPts2(six_cx, six_cy, ringR)); ctx.stroke();
+        return six_cx + dir * ringR;
+      }
+    }
+
+    // Both strands: rings draw INWARD toward canvas centre
+    const lDir = lp.x <= cx ? +1 : -1;   // L strand: inward = toward centre
+    const rDir = rp.x <= cx ? +1 : -1;   // R strand: inward = toward centre
+
+    // Outward directions (for labels, placed OUTSIDE the ring away from centre)
+    const lOutDir = -lDir;
+    const rOutDir = -rDir;
+
+    // Coding / Non-Template (L) strand — rings draw INWARD (toward centre), matching R strand
+    const lInnerX = showNonCodingBases
+      ? drawRings(lp.x, lp.y, leftBase, lDir)
+      : lp.x + lOutDir * 12;   // fallback just past backbone dot
+
+    // Template (R) strand — always shown, rings toward centre
+    const rInnerX = drawRings(rp.x, rp.y, rightBase, rDir);
+    ctx.shadowBlur = 0;
+
+    if (showLabels) {
+      ctx.font = `bold ${Math.max(7, ringR * 0.7)}px 'JetBrains Mono', monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // Both strands: labels placed OUTWARD (away from canvas centre), past the ring outer edge
+      const basesToLabel = showNonCodingBases
+        ? [[lp, leftBase, lOutDir], [rp, rightBase, rOutDir]]
+        : [[rp, rightBase, rOutDir]];
+      basesToLabel.forEach(([pt, base, outDir]) => {
+        const pur = isPurine[base];
+        const lbx = pt.x + outDir * (ringR + 3 + (pur ? ringR * 1.6 : ringR * 1.1));
+        ctx.fillStyle = behind ? col + '88' : col;
+        ctx.fillText(base, lbx, pt.y);
+      });
+    }
+
+    if (showHBonds) {
+      const bbLeft  = Math.min(lp.x, rp.x);
+      const bbRight = Math.max(lp.x, rp.x);
+      const midX    = (lp.x + rp.x) / 2;
+      const bondY   = (lp.y + rp.y) / 2;
+      const raw1 = lp.x <= rp.x ? lInnerX : rInnerX;
+      const raw2 = lp.x <= rp.x ? rInnerX : lInnerX;
+      const bx1  = Math.max(bbLeft,  Math.min(raw1, midX - 1));
+      const bx2  = Math.min(bbRight, Math.max(raw2, midX + 1));
+
+      if (bx2 - bx1 > 3) {
+        const spacing = 2.2;
+        const offsets = bonds === 2 ? [-spacing*0.5, spacing*0.5] : [-spacing, 0, spacing];
+        const dim     = behind ? 0.28 : 0.88;
+        ctx.setLineDash([2.5, 3.5]);
+        ctx.strokeStyle = `rgba(255,255,255,${dim})`;
+        ctx.lineWidth   = behind ? 0.8 : 1.4;
+        ctx.lineCap     = 'round'; ctx.shadowBlur = 0;
+        offsets.forEach(dy => {
+          ctx.beginPath(); ctx.moveTo(bx1, bondY + dy); ctx.lineTo(bx2, bondY + dy); ctx.stroke();
+        });
+        ctx.setLineDash([]); ctx.lineCap = 'butt';
+      }
+    }
+
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.setLineDash([]); ctx.lineCap = 'butt';
+  });
+
+  drawTurnBracket(ctx, W, topY, botY, amp, cx);
+}
+
+/* ─────────────────────────────────────────────────
+   TRANSCRIPTION SCENE
+   Phases:
+     synthesise → mRNA bases appear one-by-one beside template
+     drift      → mRNA shifts slightly outward
+     done       → labels shown, hold
+───────────────────────────────────────────────── */
+function drawTranscriptionScene(W, H, cx, amp, topY, botY, step, a) {
+
+  // Smooth progress values
+  const synthAmt = ease(txPhase === 'synthesise' ? txProgress :
+                        (txPhase === 'drift' || txPhase === 'done') ? 1 : 0);
+  const driftAmt = ease(txPhase === 'drift' ? txProgress :
+                        txPhase === 'done'  ? 1 : 0);
+
+  const MRNA_COL  = '#f59e0b';
+  const MRNA_GLOW = 'rgba(245,158,11,0.6)';
+
+  // ── Strand geometry — helix stays fully stationary ──
+  const GROOVE_OFFSET = 5 * Math.PI / 6;
+  const Lpts = [], Rpts = [];
+  for (let i = -1; i <= numBP; i++) {
+    const y = topY + (i + 1) * step;
+    const t = ((i + 1) / (numBP + 1)) * Math.PI * 2 * (numBP / BDNA_BP_PER_TURN) + a;
+    Lpts.push({ x: cx + Math.cos(t) * amp, y });
+    Rpts.push({ x: cx + Math.cos(t + GROOVE_OFFSET) * amp, y });
+  }
+
+  // mRNA: starts well clear of the Template DNA label, drifts further outward after synthesis
+  const MRNA_BASE_OFFSET = 90;  // px from template during synthesis (increased to clear label)
+  const MRNA_DRIFT_EXTRA = 36;  // additional px after drift phase
+  const mrnaDrift = driftAmt * MRNA_DRIFT_EXTRA;
+  const Mpts = [];
+  for (let i = 1; i <= numBP; i++) {
+    Mpts.push({ x: Rpts[i].x + MRNA_BASE_OFFSET + mrnaDrift, y: Rpts[i].y });
+  }
+
+  // ── Draw Coding / Non-Template (left) strand at 20% opacity ──
+  ctx.globalAlpha = 0.20;
+  drawBackbone(Lpts, C.bbL);
+  ctx.globalAlpha = 1;
+
+  // ── Draw template (right) strand — fully visible, turns purple ──
+  drawBackbone(Rpts, '#c084fc');
+
+  // ── H-bond rungs — draw them at full opacity (helix never unzips) ──
+  for (let i = 1; i <= numBP; i++) {
+    const lp  = Lpts[i], rp = Rpts[i];
+    const col = SEQ[(i-1) % SEQ.length] === 0 ? C.AT : C.GC;
+    ctx.globalAlpha = 0.20;  // match non-coding strand opacity
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.setLineDash([3, 4]); ctx.lineCap = 'round';
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(lp.x, lp.y); ctx.lineTo(rp.x, rp.y); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.lineCap = 'butt';
+  }
+
+  // ── Template base labels — always shown ──
+  {
+    const R = 11;
+    for (let i = 1; i <= numBP; i++) {
+      const bp = TX_BP[i - 1];
+      const rp = Rpts[i];
+      ctx.save();
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, R, 0, Math.PI * 2);
+      ctx.fillStyle = bp.col;
+      ctx.shadowBlur = 10; ctx.shadowColor = bp.col; ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 9px \'JetBrains Mono\', monospace';
+      ctx.fillStyle = '#000'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(bp.tmplDNA, rp.x, rp.y);
+      ctx.restore();
+    }
+  }
+
+  // ── mRNA bases: build one at a time ──
+  const basesToShow = (txPhase === 'synthesise')
+    ? txProgress * numBP
+    : txMRNACount;
+
+  if (basesToShow > 0) {
+    const revealed = Math.min(numBP, Math.ceil(basesToShow));
+
+    // mRNA backbone dashed line (only between revealed bases)
+    if (revealed >= 2) {
+      ctx.save();
+      ctx.strokeStyle = MRNA_COL; ctx.lineWidth = 3;
+      ctx.lineCap = 'round'; ctx.setLineDash([5, 4]);
+      ctx.shadowBlur = 10; ctx.shadowColor = MRNA_GLOW;
+      ctx.beginPath(); ctx.moveTo(Mpts[0].x, Mpts[0].y);
+      for (let k = 1; k < revealed; k++) ctx.lineTo(Mpts[k].x, Mpts[k].y);
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    for (let i = 0; i < revealed; i++) {
+      const bp   = TX_BP[i];
+      const pt   = Mpts[i];
+      const frac = Math.min(1, basesToShow - i);  // 0→1 pop-in per base
+      if (frac <= 0) continue;
+
+      ctx.save();
+      ctx.globalAlpha = frac;
+
+      // H-bond dash from mRNA base to template base (while synthesising)
+      if (frac > 0.3 && txPhase !== 'done') {
+        const rp = Rpts[i + 1];
+        ctx.strokeStyle = `rgba(255,255,255,${0.28 * frac})`;
+        ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(pt.x - 11, pt.y);
+        ctx.lineTo(rp.x + 11, rp.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Pop-in circle — scales up as frac goes 0→1
+      const r = 11 * Math.min(1, frac * 2.5);
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = MRNA_COL;
+      ctx.shadowBlur = 12; ctx.shadowColor = MRNA_GLOW; ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Letter appears once circle is big enough
+      if (r > 6) {
+        ctx.globalAlpha = Math.min(1, (r - 6) / 5);
+        ctx.font = 'bold 9px \'JetBrains Mono\', monospace';
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(bp.mRNA, pt.x, pt.y);
+      }
+      ctx.restore();
+    }
+  }
+
+  // ── Labels ──
+  // KEY STRATEGY: Template DNA label sits LEFT of template strand (text-right-aligned).
+  // mRNA label sits RIGHT of mRNA strand (text-left-aligned).
+  // They are on opposite sides of the entire scene → can never overlap.
+  // Both anchor to the topmost visible base so they ride the helix naturally.
+  // Transcription arrow anchors to a mid-strand base in the gap between strands.
+
+  // Use the first real base (index 0 in 0-based Mpts / index 1 in Rpts sentinel array)
+  const tmplTop = Rpts[1];   // topmost template base
+  const mrnaTop = Mpts[0];   // topmost mRNA base (same Y as tmplTop)
+
+  // Arrow anchor: use middle base so it's vertically centred and clear of labels
+  const arrowIdx   = Math.floor(numBP / 2);
+  const tmplMid    = Rpts[arrowIdx + 1];
+  const mrnaMid    = Mpts[arrowIdx];
+
+  ctx.save();
+  ctx.font = 'bold 10px \'JetBrains Mono\', monospace';
+  ctx.textBaseline = 'middle';
+
+  // ── Template DNA label — floats LEFT of template strand ──
+  {
+    const labelX = tmplTop.x - 14;   // 14px left of the base circle edge
+    const labelY = tmplTop.y;        // same Y as the base, rides with helix
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur  = 10;
+    ctx.fillStyle   = '#c084fc';
+    ctx.shadowColor = '#c084fc';
+    ctx.textAlign   = 'right';
+
+    // Short horizontal leader from label to base
+    ctx.strokeStyle = 'rgba(192,132,252,0.35)';
+    ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(labelX + 2, labelY);
+    ctx.lineTo(tmplTop.x - 12, labelY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillText('Template DNA', labelX, labelY - 7);
+    ctx.fillText('(3′→5′)',      labelX, labelY + 7);
+    ctx.shadowBlur = 0;
+  }
+
+  // ── mRNA label — floats RIGHT of mRNA strand, fades in on completion ──
+  if (txMRNACount >= numBP || txPhase === 'drift' || txPhase === 'done') {
+    const mAlpha = txPhase === 'done' ? 1 :
+                   txPhase === 'drift' ? Math.min(1, txProgress * 3) :
+                   Math.min(1, (txMRNACount / numBP - 0.8) * 5);
+    const alpha = Math.max(0, mAlpha);
+
+    const labelX = mrnaTop.x + 14;   // 14px right of the mRNA base circle
+    const labelY = mrnaTop.y;
+
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur  = 10;
+    ctx.fillStyle   = MRNA_COL;
+    ctx.shadowColor = MRNA_GLOW;
+    ctx.textAlign   = 'left';
+
+    ctx.strokeStyle = `rgba(245,158,11,${0.35 * alpha})`;
+    ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(mrnaTop.x + 12, labelY);
+    ctx.lineTo(labelX - 2, labelY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillText('mRNA',     labelX, labelY - 7);
+    ctx.fillText('(5′→3′)', labelX, labelY + 7);
+    ctx.shadowBlur = 0;
+
+    // ── Transcription arrow — horizontal, between template and mRNA at mid-strand ──
+    const arrowX1 = tmplMid.x + 13;
+    const arrowX2 = mrnaMid.x - 13;
+    const arrowY  = (tmplMid.y + mrnaMid.y) / 2;
+
+    if (arrowX2 > arrowX1 + 20) {
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.strokeStyle = 'rgba(210,190,255,0.6)';
+      ctx.lineWidth   = 1.5; ctx.lineCap = 'round';
+      ctx.setLineDash([4, 4]);
+      ctx.shadowBlur  = 5; ctx.shadowColor = 'rgba(200,180,255,0.3)';
+      ctx.beginPath();
+      ctx.moveTo(arrowX1, arrowY);
+      ctx.lineTo(arrowX2 - 7, arrowY);
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.shadowBlur = 0;
+
+      ctx.fillStyle = 'rgba(210,190,255,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(arrowX2,     arrowY);
+      ctx.lineTo(arrowX2 - 9, arrowY - 5);
+      ctx.lineTo(arrowX2 - 9, arrowY + 5);
+      ctx.closePath(); ctx.fill();
+
+      const midX = (arrowX1 + arrowX2) / 2;
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.font = '500 8px \'JetBrains Mono\', monospace';
+      ctx.fillStyle = 'rgba(220,205,255,0.8)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('Transcription', midX, arrowY - 4);
+    }
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.setLineDash([]); ctx.lineCap = 'butt';
+}
+
+
+/* Simple ease-in-out */
+function ease(t) { t = Math.max(0, Math.min(1, t)); return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+/* Lerp two hex colours */
+function lerpColor(a, b, t) {
+  t = Math.max(0, Math.min(1, t));
+  const ah = parseInt(a.replace('#',''), 16);
+  const bh = parseInt(b.replace('#',''), 16);
+  const ar = (ah>>16)&0xff, ag = (ah>>8)&0xff, ab = ah&0xff;
+  const br = (bh>>16)&0xff, bg = (bh>>8)&0xff, bb = bh&0xff;
+  return `rgb(${Math.round(ar+(br-ar)*t)},${Math.round(ag+(bg-ag)*t)},${Math.round(ab+(bb-ab)*t)})`;
+}
+
+function drawTurnBracket(ctx, W, topY, botY, amp, cx) {
+  // Position bracket to the right of the helix, clear of it
+  const bracketX = cx + amp + 36;
+  const capWidth = 7;
+
+  const bracketColor  = 'rgba(0, 212, 245, 0.85)';
+  const bracketShadow = 'rgba(0, 212, 245, 0.4)';
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = bracketColor;
+  ctx.lineWidth   = 1.5;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.shadowBlur  = 6;
+  ctx.shadowColor = bracketShadow;
+  ctx.setLineDash([]);
+
+  // Vertical line
+  ctx.beginPath();
+  ctx.moveTo(bracketX, topY);
+  ctx.lineTo(bracketX, botY);
+  ctx.stroke();
+
+  // Top cap
+  ctx.beginPath();
+  ctx.moveTo(bracketX - capWidth, topY);
+  ctx.lineTo(bracketX, topY);
+  ctx.stroke();
+
+  // Bottom cap
+  ctx.beginPath();
+  ctx.moveTo(bracketX - capWidth, botY);
+  ctx.lineTo(bracketX, botY);
+  ctx.stroke();
+
+  // Midpoint tick
+  const midY = (topY + botY) / 2;
+  ctx.beginPath();
+  ctx.moveTo(bracketX, midY);
+  ctx.lineTo(bracketX + 5, midY);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+
+  // Label — rotated 90° along the bracket
+  const labelText1 = 'One complete turn';
+  const labelText2 = '= 10 base pairs';
+  const fontSize   = Math.max(9, Math.min(12, (botY - topY) / 22, (W - cx - amp - 40) / 14));
+
+  ctx.font      = `600 ${fontSize}px 'JetBrains Mono', monospace`;
+  ctx.fillStyle = 'rgba(0, 212, 245, 0.92)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Translate to bracket midpoint, rotate, draw two lines
+  ctx.translate(bracketX + fontSize + 4, midY);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(labelText1, 0, 0);
+  ctx.fillText(labelText2, 0, fontSize + 2);
+
+  ctx.restore();
+}
+
+/* Draw a smooth backbone curve through a set of points */
+function drawBackbone(pts, color) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) {
+    const mx = (pts[i-1].x + pts[i].x) / 2;
+    const my = (pts[i-1].y + pts[i].y) / 2;
+    ctx.quadraticCurveTo(pts[i-1].x, pts[i-1].y, mx, my);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = BACKBONE_W;
+  ctx.lineCap     = 'round';
+  ctx.shadowBlur  = 18;
+  ctx.shadowColor = color;
+  ctx.stroke();
+  ctx.shadowBlur  = 0;
+
+  // Tiny sugar-phosphate dots at each nucleotide position
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.beginPath();
+    ctx.arc(pts[i].x, pts[i].y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   ANIMATION
+───────────────────────────────────────────────── */
+function tick() {
+  angle += ROTATE_SPEED;
+  draw();
+  raf = requestAnimationFrame(tick);
+}
+
+function toggleAnim() {
+  animating = !animating;
+  const btn = document.getElementById('btn-anim');
+  if (animating) {
+    btn.classList.add('active');
+    btn.innerHTML = '<span id="anim-icon">⏸</span> Pause';
+    tick();
+  } else {
+    btn.classList.remove('active');
+    btn.innerHTML = '<span id="anim-icon">▶</span> Rotate';
+    cancelAnimationFrame(raf);
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   CONTROLS
+───────────────────────────────────────────────── */
+function toggleLabels() {
+  showLabels = !showLabels;
+  document.getElementById('btn-labels').classList.toggle('active', showLabels);
+  draw();
+}
+function toggleHBonds() {
+  showHBonds = !showHBonds;
+  document.getElementById('btn-hbonds').classList.toggle('active', showHBonds);
+  draw();
+}
+function toggleNonCoding() {
+  showNonCodingBases = !showNonCodingBases;
+  document.getElementById('btn-noncoding').classList.toggle('active', showNonCodingBases);
+  const badge = document.getElementById('nc-badge');
+  if (badge) {
+    badge.textContent = showNonCodingBases ? '5′→3′ Non-Coding ✓' : 'Tap 5′→3′ strand';
+    badge.style.opacity = '1';
+    clearTimeout(badge._t);
+    badge._t = setTimeout(() => { badge.style.opacity = '0.45'; }, 1800);
+  }
+  draw();
+}
+
+
+function toggleInfo() {
+  const overlay = document.getElementById('info-overlay');
+  const btn     = document.getElementById('btn-info');
+  overlay.classList.toggle('show');
+  btn.classList.toggle('active', overlay.classList.contains('show'));
+}
+function resetView() {
+  if (animating) toggleAnim();
+  if (transcriptionMode) stopTranscription();
+  angle = 0; manualOff = 0;
+  draw();
+}
+
+/* ─────────────────────────────────────────────────
+   TRANSCRIPTION CONTROL
+───────────────────────────────────────────────── */
+const PHASE_DURATION = {
+  synthesise: 3500,  // ms — one base every 350 ms
+  drift:       900,  // ms — mRNA shifts outward
+  done:       9999,  // hold
+};
+
+function setStatus(msg) {
+  const el = document.getElementById('transcription-status');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+
+function stopTranscription() {
+  cancelAnimationFrame(txRaf);
+  transcriptionMode = false;
+  txPhase     = 'idle';
+  txProgress  = 0;
+  txMRNACount = 0;
+  txDrift     = 0;
+  const btn = document.getElementById('btn-transcribe');
+  btn.classList.remove('active', 'btn-mrna');
+  btn.innerHTML = '<span>🧪</span> DNA → mRNA';
+  setStatus('');
+  // Restore end-labels
+  document.querySelectorAll('.end-label').forEach(el => el.style.opacity = '1');
+  document.getElementById('viz-title').textContent = 'Bond View';
+  draw();
+}
+
+function toggleTranscription() {
+  if (transcriptionMode) { stopTranscription(); return; }
+
+  // Pause DNA rotation if running
+  if (animating) toggleAnim();
+
+  transcriptionMode = true;
+  txPhase     = 'synthesise';
+  txProgress  = 0;
+  txMRNACount = 0;
+  txDrift     = 0;
+
+  const btn = document.getElementById('btn-transcribe');
+  btn.classList.add('active', 'btn-mrna');
+  btn.innerHTML = '<span>⏹</span> Stop';
+
+  // Dim end-labels during transcription
+  document.querySelectorAll('.end-label').forEach(el => el.style.opacity = '0');
+  document.getElementById('viz-title').textContent = 'Transcription';
+
+  runTxPhase();
+}
+
+function runTxPhase() {
+  const duration = PHASE_DURATION[txPhase];
+  const start    = performance.now();
+  const statusMap = {
+    synthesise: '① RNA Polymerase synthesising mRNA…',
+    drift:      '② mRNA strand complete',
+    done:       '✓ Transcription complete',
+  };
+  setStatus(statusMap[txPhase] || '');
+
+  function frame(now) {
+    if (!transcriptionMode) return;
+    txProgress = Math.min(1, (now - start) / duration);
+
+    // Track how many bases have been fully revealed (used for label fade-in)
+    if (txPhase === 'synthesise') {
+      txMRNACount = Math.floor(txProgress * numBP);
+    }
+    if (txPhase === 'drift') {
+      txDrift = txProgress;
+    }
+
+    draw();
+
+    if (txProgress < 1) {
+      txRaf = requestAnimationFrame(frame);
+    } else {
+      // Advance to next phase
+      txProgress = 1;
+      if (txPhase === 'synthesise') { txMRNACount = numBP; }
+      if (txPhase === 'drift')      { txDrift = 1; }
+      draw();
+
+      const next = {
+        synthesise: 'drift',
+        drift:      'done',
+        done:        null,
+      }[txPhase];
+
+      if (next) {
+        txPhase = next;
+        setTimeout(runTxPhase, 120);
+      }
+    }
+  }
+
+  txRaf = requestAnimationFrame(frame);
+}
+
+/* ─────────────────────────────────────────────────
+   MOUSE / TOUCH DRAG (manual rotation)
+───────────────────────────────────────────────── */
+canvas.addEventListener('mousedown', e => {
+  if (animating) return;
+  drag = { on: true, lastY: e.clientY };
+});
+window.addEventListener('mousemove', e => {
+  if (!drag.on) return;
+  manualOff += (e.clientY - drag.lastY) * 0.012;
+  drag.lastY = e.clientY;
+  draw();
+});
+window.addEventListener('mouseup', () => { drag.on = false; });
+
+canvas.addEventListener('touchstart', e => {
+  if (animating) return;
+  drag = { on: true, lastY: e.touches[0].clientY, didMove: false };
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!drag.on) return;
+  drag.didMove = true;
+  manualOff += (e.touches[0].clientY - drag.lastY) * 0.012;
+  drag.lastY = e.touches[0].clientY;
+  draw();
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('click', e => {
+  if (transcriptionMode) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const W   = wrap.clientWidth;
+  const H   = wrap.clientHeight;
+  const cx  = W / 2;
+  const amp = Math.min(90, W * 0.2) * (10 / Math.max(10, numBP)) * 0.8 + 20;
+  const span = (H - 40) - 32;
+  const step = span / (numBP + 1);
+  const a   = angle + manualOff;
+
+  // Check if click is near any L (Coding / Non-Template) backbone point or its ring
+  const ringR = Math.max(5, Math.min(((H - 40 - 32) / (numBP + 1)) * 0.38, 18));
+  const ringExtent = ringR * 2.5; // full ring + purine extension
+  for (let i = 1; i <= numBP; i++) {
+    const y  = 32 + i * step;
+    const t  = (i / (numBP + 1)) * Math.PI * 2 * (numBP / BDNA_BP_PER_TURN) + a;
+    const xL = cx + Math.cos(t) * amp;
+    const lDir2 = xL <= cx ? +1 : -1;  // rings extend inward (toward centre)
+    // Hit zone: backbone dot plus the full ring extending inward
+    const ringCx = xL + lDir2 * (ringR + 3);
+    if (Math.hypot(mx - xL, my - y) < 40 ||
+        Math.hypot(mx - ringCx, my - y) < ringExtent) {
+      showNonCodingBases = !showNonCodingBases;
+      draw();
+      // Flash the strand label badge
+      const badge = document.getElementById('nc-badge');
+      if (badge) {
+        badge.textContent = showNonCodingBases ? '5′→3′ Coding / Non-Template ✓' : 'Tap Coding / Non-Template Strand';
+        badge.style.opacity = '1';
+        clearTimeout(badge._t);
+        badge._t = setTimeout(() => { badge.style.opacity = '0.45'; }, 1800);
+      }
+      return;
+    }
+  }
+});
+
+canvas.addEventListener('touchend', e => {
+  const wasDrag = drag.didMove;
+  drag.on = false;
+  if (wasDrag || transcriptionMode) return;
+  // Short tap → treat as click for non-coding toggle
+  const touch = e.changedTouches[0];
+  canvas.dispatchEvent(new MouseEvent('click', {
+    clientX: touch.clientX, clientY: touch.clientY, bubbles: true
+  }));
+});
+
+/* ─────────────────────────────────────────────────
+   TOOLTIP ON HOVER
+───────────────────────────────────────────────── */
+const tooltip = document.getElementById('tooltip');
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  const cx   = W / 2;
+  const amp  = Math.min(90, W * 0.2) * (10 / Math.max(10, numBP)) * 0.8 + 20;
+  const span = (H - 40) - 32;
+  const step = span / (numBP + 1);
+  const a    = angle + manualOff;
+
+  let hit = null;
+  for (let i = 1; i <= numBP; i++) {
+    const y = 32 + i * step;
+    const t = (i / (numBP + 1)) * Math.PI * 2 * (numBP / BDNA_BP_PER_TURN) + a;
+    const xL = cx + Math.cos(t) * amp;
+    const xR = cx + Math.cos(t + 5 * Math.PI / 6) * amp;
+    const midX = (xL + xR) / 2;
+
+    // Hit test: blob centres or midpoint — wider in structural/detailed view
+    const hitR = 30;
+    if (Math.hypot(mx - xL, my - y) < hitR ||
+        Math.hypot(mx - xR, my - y) < hitR ||
+        Math.hypot(mx - midX, my - y) < 24) {
+      hit = i; break;
+    }
+  }
+
+  if (hit !== null) {
+    const nc    = SEQ_NC[(hit - 1) % SEQ_NC.length];
+    const tmpl  = DNA_COMP[nc];
+    const type  = SEQ[(hit - 1) % SEQ.length] === 0 ? 'AT' : 'GC';
+    const col   = type === 'AT' ? '#2dff9a' : '#ffb030';
+    const baseNames = { A:'Adenine', T:'Thymine', G:'Guanine', C:'Cytosine' };
+    const title = `${baseNames[nc]} – ${baseNames[tmpl]}`;
+    const bonds = type === 'AT' ? '2 Hydrogen Bonds' : '3 Hydrogen Bonds';
+    const mrnaBase = MRNA_MAP[tmpl];
+    const tip   = `mRNA: ${tmpl} → ${mrnaBase} · ${type === 'AT' ? 'Weaker pair' : 'Stronger pair'}`;
+
+    document.getElementById('tip-title').textContent  = title;
+    document.getElementById('tip-title').style.color  = col;
+    document.getElementById('tip-bonds').textContent  = bonds;
+    document.getElementById('tip-tip').textContent    = tip;
+
+    // Position tooltip, keep on screen
+    let tx = e.clientX - rect.left + 16;
+    let ty = e.clientY - rect.top  - 10;
+    if (tx + 215 > W) tx = e.clientX - rect.left - 225;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top  = ty + 'px';
+    tooltip.classList.add('show');
+    canvas.style.cursor = 'pointer';
+  } else {
+    tooltip.classList.remove('show');
+    canvas.style.cursor = animating ? 'default' : 'grab';
+  }
+});
+canvas.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+
+/* ─────────────────────────────────────────────────
+   PURINE / PYRIMIDINE RING DIAGRAMS
+───────────────────────────────────────────────── */
+function hexPts(cx, cy, r) {
+  return Array.from({length:6},(_,i)=>({
+    x: cx + r * Math.cos(Math.PI/2 + i * Math.PI * 2/6),
+    y: cy + r * Math.sin(Math.PI/2 + i * Math.PI * 2/6)
+  }));
+}
+function pentPts(cx, cy, r) {
+  return Array.from({length:5},(_,i)=>({
+    x: cx + r * Math.cos(-Math.PI/2 + i * Math.PI * 2/5),
+    y: cy + r * Math.sin(-Math.PI/2 + i * Math.PI * 2/5)
+  }));
+}
+function polyPath(g, pts) {
+  g.beginPath();
+  pts.forEach((p,i)=> i===0 ? g.moveTo(p.x,p.y) : g.lineTo(p.x,p.y));
+  g.closePath();
+}
+
+function drawPurine() {
+  const c = document.getElementById('purine-canvas');
+  const g = c.getContext('2d');
+  g.clearRect(0,0,c.width,c.height);
+  const col = '#ffb030';
+  g.strokeStyle = col; g.lineWidth = 2;
+  g.shadowBlur = 8; g.shadowColor = col;
+  polyPath(g, hexPts(24, 27, 18)); g.stroke();  // six-membered ring
+  polyPath(g, pentPts(52, 27, 14)); g.stroke(); // five-membered ring
+  g.shadowBlur = 0;
+}
+
+function drawPyrimidine() {
+  const c = document.getElementById('pyrimidine-canvas');
+  const g = c.getContext('2d');
+  g.clearRect(0,0,c.width,c.height);
+  const col = '#2dff9a';
+  g.strokeStyle = col; g.lineWidth = 2;
+  g.shadowBlur = 8; g.shadowColor = col;
+  polyPath(g, hexPts(44, 27, 20)); g.stroke();  // single six-membered ring
+  g.shadowBlur = 0;
+}
+
+/* ─────────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────────── */
+resize();
+drawPurine();
+drawPyrimidine();
+
+// Activate H-bonds button (starts ON)
+document.getElementById('btn-hbonds').classList.add('active');
+</script>
+</body>
+</html>
