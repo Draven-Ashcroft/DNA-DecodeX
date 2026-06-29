@@ -1,75 +1,70 @@
-# DeCodeX - Interactive DNA Structure Explorer 🧬
+<p align="center">
+  <img src="assets/repo-banner.png" alt="DeCodeX Banner" width="100%">
+</p>
 
-## Overview
-DeCodeX is a classroom-ready, interactive web-based tool for exploring DNA structure. Students can visualize the B-form double helix, examine base pairing rules, and learn about transcription through interactive 3D visualization.
+# 🧬 DeCodeX
 
-## Features
-- **Interactive 3D Helix**: Rotate and explore the DNA double helix
-- **Bond Visualization**: View hydrogen bonds between base pairs
-- **Base Pair Details**: Inspect A-T and G-C pairing with bond counts
-- **Coding/Non-Template Strand**: Toggle visibility of both DNA strands
-- **DNA → mRNA Transcription**: Watch real-time transcription animation
-- **Purine/Pyrimidine Diagrams**: Learn base structure differences
-- **Responsive Design**: Works on desktop, tablet, and mobile
+<p align="center">
 
-## Teacher Customization
+### Interactive DNA Structure Explorer
 
-### Color Scheme
-Search for `COLOR SCHEME` in the HTML file to modify:
-- Base pair colors (A-T, G-C)
-- Backbone colors (5'→3', 3'→5')
-- Highlight colors
+Explore DNA architecture through an interactive B-form double helix, base pairing, and real-time transcription.
 
-### Animation Speed
-Modify `ROTATE_SPEED` constant in the JavaScript section:
-```javascript
-const ROTATE_SPEED = 0.009; // Higher = faster rotation
-```
+</p>
 
-### Base Pair Sequence
-Edit the `SEQ_NC` array to change the DNA sequence:
-```javascript
-const SEQ_NC = ['A','G','T','C','A','G','T','C','A','G'];
-```
+---
 
-## Usage
-1. Open `index.html` in a modern web browser
-2. Use the control buttons to:
-   - **Rotate**: Start/stop helix rotation
-   - **Labels**: Show base pair labels
-   - **H-Bonds**: Toggle hydrogen bond visualization
-   - **Coding/Non-Template**: Show second strand bases
-   - **ℹ**: Display helix dimensions
-   - **DNA → mRNA**: Visualize transcription
-   - **↺**: Reset view
+## 📖 Overview
 
-## Educational Benefits
-- Visual learning for DNA structure
-- Interactive exploration encourages discovery
-- Aligned with AP Biology and NCERT Grade 12 curricula
-- Supports multiple learning styles
+**DeCodeX** is an open-source educational visualization of DNA structure. It enables learners to explore the B-form double helix, understand complementary base pairing, and visualize DNA-to-mRNA transcription through an interactive, browser-based experience.
 
-## Browser Support
-- Chrome/Chromium (recommended)
-- Firefox
-- Safari
-- Edge
+---
 
-## File Structure
-```
-DNA-DecodeX/
-├── index.html    (Main application file)
-└── README.md     (This file)
-```
+## ✨ Features
 
-## Technical Details
-- Pure HTML/CSS/JavaScript (no dependencies)
-- Canvas-based rendering for smooth animations
-- Responsive design with media queries
-- Accessibility features (ARIA labels, semantic HTML)
+- 🧬 Interactive 3D DNA helix
+- 🔗 Hydrogen bond visualization
+- 🧪 Base pair inspection (A–T & G–C)
+- 🧬 Coding & template strand explorer
+- ▶️ DNA → mRNA transcription animation
+- 📱 Responsive, browser-based interface
 
-## License
-Open source educational tool
+---
 
-## Contact
-For questions or suggestions, please open an issue on GitHub.
+## 📜 License
+
+GNU General Public License v3.0 (GPL-3.0)
+
+---
+
+## 👨‍🏫 Author
+
+**Draven-Ashcroft**
+
+**DIPS Chain of Institutions, Tanda**
+
+---
+
+## 🙏 Acknowledgements
+
+Developed with assistance from modern AI tools.
+
+Special thanks to:
+
+- **OpenAI (ChatGPT)** — scientific review, debugging, and implementation
+- **Anthropic Claude** — implementation assistance and optimization
+- **Google Gemini** — concept exploration and refinement
+- **Moonshot AI** — debugging and prototype refinement
+- **DeepSeek** — early drafts and experimentation
+
+Inspired by **BioRender**, **NCERT Biology**, and modern scientific visualization principles.
+
+---
+
+<p align="center">
+
+## 🧬 DeCodeX
+
+### *Unraveling the Blueprint of Life.*
+
+</p>
