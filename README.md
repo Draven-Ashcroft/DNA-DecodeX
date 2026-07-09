@@ -4,67 +4,29 @@
 
 # 🧬 DeCodeX
 
-<p align="center">
-
-### Interactive DNA Structure Explorer
-
-Explore DNA architecture through an interactive B-form double helix, base pairing, and real-time transcription.
-
-</p>
+**Interactive DNA Structure Explorer**
 
 ---
 
-## 📖 Overview
+### 📖 Overview
+**DeCodeX** is an open-source educational tool designed to demystify DNA architecture. Through an interactive B-form double helix, users can explore base pairing and witness the mechanics of molecular genetics.
 
-**DeCodeX** is an open-source educational visualization of DNA structure. It enables learners to explore the B-form double helix, understand complementary base pairing, and visualize DNA-to-mRNA transcription through an interactive, browser-based experience.
-
----
-
-## ✨ Features
-
-- 🧬 Interactive 3D DNA helix
-- 🔗 Hydrogen bond visualization
-- 🧪 Base pair inspection (A–T & G–C)
-- 🧬 Coding & template strand explorer
-- ▶️ DNA → mRNA transcription animation
-- 📱 Responsive, browser-based interface
+### ✨ Features
+*   **3D Helix Exploration**: Inspect the B-form double helix with real-time interactivity.
+*   **Molecular Analysis**: Visualize hydrogen bonding and specific base pair (A–T, G–C) inspections.
+*   **mRNA Mode**: Simulate and visualize the process of DNA-to-mRNA transcription.
+*   **Coding Strand Toggle**: Switch between strands to enhance conceptual understanding of genetic encoding.
+*   **Accessible Interface**: Fully responsive, browser-based design for classroom and self-study.
 
 ---
 
-## 📜 License
+### 📜 License
+GPL-3.0
 
-GNU General Public License v3.0 (GPL-3.0)
-
----
-
-## 👨‍🏫 Author
-
-**Draven-Ashcroft**
-
-**DIPS Chain of Institutions, Tanda**
+### 👨‍🏫 Author
+**Draven-Ashcroft** | DIPS Chain of Institutions, Tanda
 
 ---
 
-## 🙏 Acknowledgements
-
-Developed with assistance from modern AI tools.
-
-Special thanks to:
-
-- **OpenAI (ChatGPT)** — scientific review, debugging, and implementation
-- **Anthropic Claude** — implementation assistance and optimization
-- **Google Gemini** — concept exploration and refinement
-- **Moonshot AI** — debugging and prototype refinement
-- **DeepSeek** — early drafts and experimentation
-
-Inspired by **BioRender**, **NCERT Biology**, and modern scientific visualization principles.
-
----
-
-<p align="center">
-
-## 🧬 DeCodeX
-
-### *Unraveling the Blueprint of Life.*
-
-</p>
+### 🙏 Acknowledgements
+Built with technical support from AI innovators: OpenAI, Anthropic, Google, Moonshot AI, and DeepSeek. Inspired by NCERT Biology and professional scientific visualization standards.
